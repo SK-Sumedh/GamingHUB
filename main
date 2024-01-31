@@ -1,0 +1,302 @@
+import csv
+import os
+from datetime import datetime
+import random
+import time
+
+# Constants
+DATA_DIR = os.path.join(os.getcwd(), 'game_data')
+USER_DATA_DIR = os.path.join(DATA_DIR, 'user_data')
+WORD_CSV = os.path.join(DATA_DIR, 'word_data.csv')
+QUIZ_CSV = os.path.join(DATA_DIR, 'quiz_data.csv')
+RPS_CSV = os.path.join(DATA_DIR, 'rps_data.csv')
+MATH_CSV = os.path.join(DATA_DIR, 'math_data.csv')
+ADMIN_CSV = os.path.join(USER_DATA_DIR, 'admin_data.csv')
+HEADERS = ['Phone', 'Name', 'Points', 'Timestamp']
+ADMIN_PASSWORD = "gaminghub"
+
+# Create directories if they don't exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(USER_DATA_DIR, exist_ok=True)
+
+# Create CSV files with headers if they don't exist
+def create_csv(file_path, headers):
+    if not os.path.isfile(file_path):
+        with open(file_path, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(headers)
+
+# Create CSV files
+for file_path in [WORD_CSV, QUIZ_CSV, RPS_CSV, MATH_CSV, ADMIN_CSV]:
+    create_csv(file_path, HEADERS)
+
+# Function to validate and get a 10-digit phone number
+def get_phone():
+    while True:
+        phone = input("Enter your phone number (10 digits): ")
+        if phone.isdigit() and len(phone) == 10:
+            return phone
+        else:
+            print("Invalid input. Please enter a 10-digit phone number.")
+
+# Function to insert user data into CSV file
+def insert_csv(phone, name, game_file):
+    try:
+        with open(game_file, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow([phone, name, 0, datetime.now()])
+        return phone
+    except PermissionError:
+        print(f"Permission error: Unable to write to {game_file}. Please check file permissions.")
+        return None
+
+# Function to update user points in CSV file
+def update_points_csv(phone, points, game_file):
+    try:
+        with open(game_file, 'r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            data = list(reader)
+
+        for row in data:
+            if row[0] == phone:
+                row[2] = str(points)
+
+        with open(game_file, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerows(data)
+
+        print(f"Points updated successfully for {phone}. Points: {points}")
+    except PermissionError:
+        print(f"Permission error: Unable to write to {game_file}. Please check file permissions.")
+
+# Function to view data from CSV file
+def view_data(file_path):
+    try:
+        with open(file_path, 'r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                print(row)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+
+# Word Guessing Game
+def word_game(phone):
+    print("Welcome to the Word Guessing Game!")
+
+    target_word = "python"
+    guessed_word = ["_"] * len(target_word)
+
+    while "_" in guessed_word:
+        print(" ".join(guessed_word))
+        user_guess = input("Enter a letter: ").lower()
+
+        if len(user_guess) == 1 and user_guess.isalpha():
+            if user_guess in target_word:
+                print("Correct!\n")
+                for i in range(len(target_word)):
+                    if target_word[i] == user_guess:
+                        guessed_word[i] = user_guess
+            else:
+                print("Incorrect. Try again.\n")
+        else:
+            print("Invalid input. Please enter a single letter.\n")
+
+    print(f"Congratulations! You guessed the word '{target_word}'!")
+    points = 10
+    update_points_csv(phone, points, WORD_CSV)
+    return points
+
+# Quiz Function
+def quiz_game(phone):
+    score = 0
+
+    print("Welcome to the Quiz Game!")
+
+    questions = [
+        {"question": "Which planet is known as the Red Planet?", "options": ["Earth", "Mars", "Jupiter", "Venus"], "answer": 1},
+        {"question": "What is the largest mammal in the world?", "options": ["Elephant", "Blue Whale", "Giraffe", "Lion"], "answer": 1},
+        {"question": "Which programming language is known for its readability and simplicity?", "options": ["Java", "Python", "C++", "Ruby"], "answer": 1},
+        {"question": "Which continent is the largest by land area?", "options": ["Asia", "Africa", "North America", "Europe"], "answer": 0},
+        {"question": "Which element has the chemical symbol 'O' in the periodic table?", "options": ["Oxygen", "Gold", "Uranium", "Silver"], "answer": 0}
+    ]
+
+
+    for i, question in enumerate(questions, start=1):
+        print(f"\nQuestion {i}: {question['question']}")
+        for j, option in enumerate(question["options"], start=1):
+            print(f"{j}. {option}")
+
+        while True:
+            try:
+                user_answer = int(input("Enter the number of your answer: "))
+                if 1 <= user_answer <= len(question["options"]):
+                    break
+                else:
+                    print(f"Invalid input. Please enter a number between 1 and {len(question['options'])}.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+        if user_answer - 1 == question["answer"]:
+            print("Correct!\n")
+            score += 1
+        else:
+            print(f"Incorrect. The correct answer was {question['answer'] + 1}: {question['options'][question['answer']]}\n")
+
+    print(f"Quiz completed! Your final score is: {score}/5")
+
+    update_points_csv(phone, score, QUIZ_CSV)
+
+# Rock, Paper, Scissors Game
+def rps_game(phone):
+    print("Welcome to the Rock, Paper, Scissors Game!")
+
+    def get_user_choice():
+        while True:
+            user_choice = input("Enter your choice (rock, paper, or scissors): ").lower()
+            if user_choice in ['rock', 'paper', 'scissors']:
+                return user_choice
+            else:
+                print("Invalid choice. Please enter rock, paper, or scissors.")
+
+    def determine_winner(player_choice, computer_choice):
+        if player_choice == computer_choice:
+            return 'tie'
+        elif (player_choice == 'rock' and computer_choice == 'scissors') or \
+             (player_choice == 'paper' and computer_choice == 'rock') or \
+             (player_choice == 'scissors' and computer_choice == 'paper'):
+            return 'player'
+        else:
+            return 'computer'
+
+    choices = ['rock', 'paper', 'scissors']
+    computer_choice = random.choice(choices)
+
+    player_choice = get_user_choice()
+    print(f"Computer chose: {computer_choice}")
+
+    winner = determine_winner(player_choice, computer_choice)
+
+    if winner == 'tie':
+        print("It's a tie!")
+        points = 10
+    elif winner == 'player':
+        print("You win!")
+        points = 15
+    else:
+        print("Computer wins!")
+        points = 5
+
+    update_points_csv(phone, points, RPS_CSV)
+    return points
+
+# Math Quiz Game
+def math_game(phone):
+    print("Welcome to the Math Quiz Game!")
+
+    def generate_question():
+        num1 = random.randint(1, 20)
+        num2 = random.randint(1, 20)
+        operator = random.choice(['+', '-', '*'])
+        question = f"{num1} {operator} {num2}"
+        answer = eval(question)
+        return question, answer
+
+    def get_user_answer():
+        while True:
+            try:
+                user_answer = float(input("Enter your answer: "))
+                return user_answer
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+    num_questions = 5
+    correct_answers = 0
+    start_time = time.time()
+
+    for _ in range(num_questions):
+        question, correct_answer = generate_question()
+        print(f"Question: {question}")
+
+        user_answer = get_user_answer()
+
+        if user_answer == correct_answer:
+            print("Correct!\n")
+            correct_answers += 1
+        else:
+            print(f"Incorrect. The correct answer was: {correct_answer}\n")
+
+    end_time = time.time()
+    total_time = round(end_time - start_time, 2)
+
+    print(f"Quiz completed in {total_time} seconds. Your score: {correct_answers}/{num_questions}")
+    points = min(10 * correct_answers, 20)  # Points awarded based on correct answers (max 20)
+    update_points_csv(phone, points, MATH_CSV)
+    return points
+
+# Admin Function
+def admin():
+    entered_password = input("Enter the admin password: ")
+    if entered_password == ADMIN_PASSWORD:
+        print("\nAdmin Panel:")
+        print("1. View Word Game Data")
+        print("2. View Quiz Game Data")
+        print("3. View Rock, Paper, Scissors Game Data")
+        print("4. View Math Quiz Game Data")
+        print("5. Exit")
+
+        choice = input("Enter your choice (1-5): ")
+
+        if choice == '1':
+            view_data(WORD_CSV)
+        elif choice == '2':
+            view_data(QUIZ_CSV)
+        elif choice == '3':
+            view_data(RPS_CSV)
+        elif choice == '4':
+            view_data(MATH_CSV)
+        elif choice == '5':
+            return True
+        else:
+            print("Invalid choice")
+    else:
+        print("Incorrect password. Access denied.")
+
+# Main program
+player_phone = get_phone()
+player_name = input("Enter your name: ")
+
+while True:
+    print("\nSelect a game:")
+    print("1. Word Guessing Game")
+    print("2. Quiz Game")
+    print("3. Rock, Paper, Scissors Game")
+    print("4. Math Quiz Game")
+    print("5. Admin Panel")
+    print("6. Exit")
+
+    choice = input("Enter your choice (1-6): ")
+
+    if choice == '1':
+        player_phone = insert_csv(player_phone, player_name, WORD_CSV)
+        points = word_game(player_phone)
+        print(f"You earned {points} points. Well done!\n")
+    elif choice == '2':
+        player_phone = insert_csv(player_phone, player_name, QUIZ_CSV)
+        quiz_game(player_phone)
+    elif choice == '3':
+        player_phone = insert_csv(player_phone, player_name, RPS_CSV)
+        points = rps_game(player_phone)
+        print(f"You earned {points} points. Well done!\n")
+    elif choice == '4':
+        player_phone = insert_csv(player_phone, player_name, MATH_CSV)
+        points = math_game(player_phone)
+        print(f"You earned {points} points. Well done!\n")
+    elif choice == '5':
+        exit_admin = admin()
+        if exit_admin:
+            break
+    elif choice == '6':
+        print("Exiting the GamingHub. Goodbye!")
+        break
+    else:
+        print("Invalid choice. Please enter a number between 1 and 6.")
